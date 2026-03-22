@@ -25,6 +25,23 @@ class AuthService {
     );
     return { user: userWithoutPassword!, token };
   }
+  async login(input: LoginInput): Promise<{ user: IUser; token: string }> {
+    console.log(input, "this is input");
+    const user = await User.findOne({ email: input.email }).select("+password");
+    console.log(user);
+    if (!user) throw new ApiError(400, "Invalid email or password");
+
+    const isMatch = await user.comparePassword(input.password);
+    if (!isMatch) throw new ApiError(400, "Invalid email or password");
+
+    const token = generateToken((user._id as any).toString(), user.role);
+
+    // Fetch user without password for response
+    const userWithoutPassword = await User.findById(user._id).select(
+      "-password",
+    );
+    return { user: userWithoutPassword!, token };
+  }
   // Default admin creation
   async createDefaultAdmin() {
     const adminEmail = process.env.SUPER_ADMIN_EMAIL || "admin@example.com";
