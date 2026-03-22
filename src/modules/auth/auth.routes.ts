@@ -37,4 +37,11 @@ router.patch(
   AuthController.changePassword,
 );
 
+router.patch(
+  "/upload-profile-image",
+  authMiddleware,
+  uploadProfileSingle,
+  AuthController.uploadProfileImage,
+);
+
 export default router;

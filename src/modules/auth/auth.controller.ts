@@ -49,6 +49,38 @@ class AuthController {
       data: result,
     });
   });
+
+  uploadProfileImage = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendResponse(res, 401, {
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return sendResponse(res, 400, {
+        success: false,
+        message: "Profile image file is required",
+      });
+    }
+
+    // Get image URL from Cloudinary upload
+    const imageUrl = req.file.path;
+
+    // Update user profile with new image URL
+    const result = await AuthService.updateProfile(userId, {
+      profileImg: imageUrl,
+    });
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "Profile image uploaded successfully",
+      data: result,
+    });
+  });
 }
 
 export default new AuthController();
