@@ -29,4 +29,12 @@ router.patch(
   AuthController.updateProfile,
 );
 
+router.patch(
+  "/change-password",
+  authMiddleware,
+  changePasswordValidation,
+  validateRequest,
+  AuthController.changePassword,
+);
+
 export default router;

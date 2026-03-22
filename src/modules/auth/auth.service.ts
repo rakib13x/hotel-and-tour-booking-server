@@ -75,6 +75,32 @@ class AuthService {
     return updatedUser;
   }
 
+  async changePassword(userId: string, passwordData: any): Promise<IUser> {
+    const { currentPassword, newPassword } = passwordData;
+
+    const user = await User.findById(userId).select("+password");
+    if (!user) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await user.comparePassword(currentPassword);
+    if (!isCurrentPasswordValid) {
+      throw new ApiError(
+        StatusCodes.BAD_REQUEST,
+        "Current password is incorrect",
+      );
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    // Return user without password
+    const updatedUser = await User.findById(userId).select("-password");
+    return updatedUser!;
+  }
+
   // Default admin creation
   async createDefaultAdmin() {
     const adminEmail = process.env.SUPER_ADMIN_EMAIL || "admin@example.com";

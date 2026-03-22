@@ -31,6 +31,24 @@ class AuthController {
       data: result,
     });
   });
+
+  changePassword = catchAsync(async (req: Request, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) {
+      return sendResponse(res, 401, {
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    const result = await AuthService.changePassword(userId, req.body);
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "Password changed successfully",
+      data: result,
+    });
+  });
 }
 
 export default new AuthController();
