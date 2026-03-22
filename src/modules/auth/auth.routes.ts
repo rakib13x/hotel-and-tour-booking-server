@@ -44,4 +44,20 @@ router.patch(
   AuthController.uploadProfileImage,
 );
 
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  }),
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: "/login",
+    session: false,
+  }),
+  AuthController.googleCallback,
+);
+
 export default router;

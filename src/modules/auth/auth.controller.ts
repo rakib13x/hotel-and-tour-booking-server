@@ -81,6 +81,37 @@ class AuthController {
       data: result,
     });
   });
+
+  googleCallback = catchAsync(async (req: Request, res: Response) => {
+    const user = req.user as any;
+    console.log(user, "this is user");
+
+    if (!user) {
+      // Redirect to frontend with error
+      return res.redirect(
+        `${process.env.FRONTEND_URL || "http://localhost:3000"}/auth/google/callback?error=authentication_failed`,
+      );
+    }
+
+    // Generate JWT token
+    const token = generateToken(user._id.toString(), user.role);
+
+    // Prepare user data (exclude sensitive fields)
+    const userData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      profileImg: user.profileImg,
+      status: user.status,
+    };
+
+    // Redirect to frontend with token and user data
+    const encodedUser = encodeURIComponent(JSON.stringify(userData));
+    res.redirect(
+      `${process.env.FRONTEND_URL || "http://localhost:3000"}/auth/google/callback?token=${token}&user=${encodedUser}`,
+    );
+  });
 }
 
 export default new AuthController();
