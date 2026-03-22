@@ -1,8 +1,14 @@
 import express from "express";
 import passport from "passport";
-import { registerValidation } from "./auth.validation";
 import validateRequest from "../../middlewares/validateRequest";
 import AuthController from "./auth.controller";
+import authMiddleware from "../../middlewares/authMiddleware";
+import { uploadProfileSingle } from "../../middlewares/upload";
+import {
+  changePasswordValidation,
+  registerValidation,
+  updateProfileValidation,
+} from "./auth.validation";
 
 const router = express.Router();
 
@@ -14,5 +20,13 @@ router.post(
 );
 
 router.post("/login", AuthController.login);
+
+router.patch(
+  "/update-profile",
+  authMiddleware,
+  updateProfileValidation,
+  validateRequest,
+  AuthController.updateProfile,
+);
 
 export default router;

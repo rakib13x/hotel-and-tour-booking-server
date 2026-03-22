@@ -42,6 +42,39 @@ class AuthService {
     );
     return { user: userWithoutPassword!, token };
   }
+
+  async updateProfile(userId: string, updateData: any): Promise<IUser> {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+    }
+
+    // If email is being updated, check if it already exists
+    if (updateData.email && updateData.email !== user.email) {
+      const existingUser = await User.findOne({
+        email: updateData.email,
+        _id: { $ne: userId },
+      });
+      if (existingUser) {
+        throw new ApiError(
+          StatusCodes.CONFLICT,
+          "User with this email already exists",
+        );
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+      runValidators: true,
+    }).select("-password");
+
+    if (!updatedUser) {
+      throw new ApiError(StatusCodes.NOT_FOUND, "User not found");
+    }
+
+    return updatedUser;
+  }
+
   // Default admin creation
   async createDefaultAdmin() {
     const adminEmail = process.env.SUPER_ADMIN_EMAIL || "admin@example.com";
