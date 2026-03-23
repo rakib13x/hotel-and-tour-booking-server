@@ -4,6 +4,7 @@ import { z } from "zod";
 import authMiddleware from "../../middlewares/authMiddleware";
 import adminController from "./admin.controller";
 import adminMiddleware from "../../middlewares/adminMiddleware";
+import validateRequest from "../../middlewares/zodValidation";
 
 const router = Router();
 
@@ -37,5 +38,11 @@ router.use(adminMiddleware);
 
 // User management routes
 router.get("/users", adminController.getAllUsers);
+router.get("/users/:id", adminController.getUserById);
+router.post(
+  "/users",
+  validateRequest(createUserSchema),
+  adminController.createUser,
+);
 
 export default router;

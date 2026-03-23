@@ -4,6 +4,7 @@ import ApiError from "../../utils/ApiError";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import User from "../auth/auth.model";
+import { canCreateUserWithRole } from "../../utils/rolePermissions";
 
 class AdminController {
   // Get all users
@@ -39,6 +40,63 @@ class AdminController {
           hasPrev: Number(page) > 1,
         },
       },
+    });
+  });
+
+  // Get single user by ID
+  getUserById = catchAsync(async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Invalid user ID");
+    }
+
+    const user = await User.findById(id).select("-password");
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "User retrieved successfully",
+      data: user,
+    });
+  });
+
+  // Create new user
+  createUser = catchAsync(async (req: Request, res: Response) => {
+    const { name, email, password, role = "user" } = req.body;
+    const currentAdmin = (req as any).admin;
+
+    // Check permission to create user with this role
+    if (!canCreateUserWithRole(currentAdmin.role, role)) {
+      throw new ApiError(
+        403,
+        `You don't have permission to create users with role: ${role}`,
+      );
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      throw new ApiError(400, "User with this email already exists");
+    }
+
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role,
+    });
+
+    // Remove password from response
+    const userResponse = user.toObject();
+    const { password: _, ...userWithoutPassword } = userResponse;
+
+    sendResponse(res, 201, {
+      success: true,
+      message: "User created successfully",
+      data: userWithoutPassword,
     });
   });
 }
