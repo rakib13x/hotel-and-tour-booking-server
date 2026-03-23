@@ -1,0 +1,486 @@
+import nodemailer from "nodemailer";
+
+import logger from "../config/logger";
+import config from "../config";
+
+export interface ISendEmail {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+// Create reusable transporter object using SMTP transport
+const transporter = nodemailer.createTransport({
+  host: config.email.host,
+  port: Number(config.email.port),
+  secure: false,
+  auth: {
+    user: config.email.username,
+    pass: config.email.password,
+  },
+});
+
+// Interface for dynamic email data
+export interface IEmailData {
+  [key: string]: any;
+}
+
+// Interface for email template configuration
+export interface IEmailTemplate {
+  subject: string;
+  html: string;
+}
+
+// Interface for email options
+export interface IEmailOptions {
+  to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
+  from?: string;
+  replyTo?: string;
+  attachments?: Array<{
+    filename: string;
+    content?: Buffer | string;
+    path?: string;
+    contentType?: string;
+  }>;
+}
+
+// Generic email sender with template support
+const sendEmailWithTemplate = async (
+  template: IEmailTemplate,
+  emailOptions: IEmailOptions,
+  data: IEmailData = {},
+): Promise<boolean> => {
+  try {
+    // Replace placeholders in subject and HTML with actual data
+    let subject = template.subject;
+    let html = template.html;
+
+    // Replace all {{variableName}} placeholders with actual values
+    Object.keys(data).forEach((key) => {
+      const placeholder = new RegExp(`{{${key}}}`, "g");
+      subject = subject.replace(placeholder, String(data[key] || ""));
+      html = html.replace(placeholder, String(data[key] || ""));
+    });
+
+    const mailOptions = {
+      from: emailOptions.from || `"MT Backend" ${config.email.from}`,
+      to: Array.isArray(emailOptions.to)
+        ? emailOptions.to.join(", ")
+        : emailOptions.to,
+      cc: emailOptions.cc
+        ? Array.isArray(emailOptions.cc)
+          ? emailOptions.cc.join(", ")
+          : emailOptions.cc
+        : undefined,
+      bcc: emailOptions.bcc
+        ? Array.isArray(emailOptions.bcc)
+          ? emailOptions.bcc.join(", ")
+          : emailOptions.bcc
+        : undefined,
+      replyTo: emailOptions.replyTo,
+      subject,
+      html,
+      attachments: emailOptions.attachments,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    logger.info("Dynamic email sent successfully", {
+      to: emailOptions.to,
+      subject,
+      messageId: info.messageId,
+      accepted: info.accepted,
+    });
+    return true;
+  } catch (error) {
+    logger.error("Dynamic email sending failed:", error);
+    return false;
+  }
+};
+
+// Send simple email (existing functionality)
+const sendEmail = async (values: ISendEmail): Promise<boolean> => {
+  try {
+    const info = await transporter.sendMail({
+      from: `"MT Backend" ${config.email.from}`,
+      to: values.to,
+      subject: values.subject,
+      html: values.html,
+    });
+
+    logger.info("Simple email sent successfully", {
+      to: values.to,
+      subject: values.subject,
+      accepted: info.accepted,
+    });
+    return true;
+  } catch (error) {
+    logger.error("Simple email sending failed:", error);
+    return false;
+  }
+};
+
+// Send bulk emails to multiple recipients
+const sendBulkEmails = async (
+  template: IEmailTemplate,
+  recipients: Array<{
+    email: string;
+    data?: IEmailData;
+    options?: Partial<IEmailOptions>;
+  }>,
+  globalData: IEmailData = {},
+): Promise<{
+  successful: number;
+  failed: number;
+  results: Array<{ email: string; success: boolean; error?: string }>;
+}> => {
+  const results: Array<{ email: string; success: boolean; error?: string }> =
+    [];
+  let successful = 0;
+  let failed = 0;
+
+  for (const recipient of recipients) {
+    try {
+      const mergedData = { ...globalData, ...recipient.data };
+      const emailOptions: IEmailOptions = {
+        to: recipient.email,
+        ...recipient.options,
+      };
+
+      const success = await sendEmailWithTemplate(
+        template,
+        emailOptions,
+        mergedData,
+      );
+
+      if (success) {
+        successful++;
+        results.push({ email: recipient.email, success: true });
+      } else {
+        failed++;
+        results.push({
+          email: recipient.email,
+          success: false,
+          error: "Email sending failed",
+        });
+      }
+    } catch (error: any) {
+      failed++;
+      results.push({
+        email: recipient.email,
+        success: false,
+        error: error.message || "Unknown error",
+      });
+    }
+  }
+
+  logger.info("Bulk email sending completed", {
+    successful,
+    failed,
+    total: recipients.length,
+  });
+  return { successful, failed, results };
+};
+
+// Send notification to admin with dynamic content
+const sendAdminNotification = async (
+  notificationType: string,
+  data: IEmailData,
+  options: Partial<IEmailOptions> = {},
+): Promise<boolean> => {
+  try {
+    const adminEmail = config.admin.email;
+
+    if (!adminEmail) {
+      logger.error("Admin email not configured");
+      return false;
+    }
+
+    // Default admin notification template
+    const template: IEmailTemplate = {
+      subject: `🔔 {{notificationType}} - {{title}}`,
+      html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Admin Notification</title>
+                    <style>
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            line-height: 1.6;
+                            color: #333;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 20px;
+                            background-color: #f4f4f4;
+                        }
+                        .container {
+                            background: white;
+                            padding: 30px;
+                            border-radius: 10px;
+                            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        }
+                        .header {
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            color: white;
+                            padding: 20px;
+                            border-radius: 8px;
+                            margin-bottom: 20px;
+                            text-align: center;
+                        }
+                        .field {
+                            margin-bottom: 15px;
+                            padding: 15px;
+                            background-color: #f8f9fa;
+                            border-radius: 5px;
+                            border-left: 4px solid #667eea;
+                        }
+                        .field-label {
+                            font-weight: bold;
+                            color: #495057;
+                            margin-bottom: 5px;
+                        }
+                        .field-value {
+                            color: #6c757d;
+                        }
+                        .footer {
+                            margin-top: 20px;
+                            padding-top: 20px;
+                            border-top: 1px solid #eee;
+                            text-align: center;
+                            color: #6c757d;
+                            font-size: 12px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🔔 {{notificationType}}</h1>
+                            <p>{{description}}</p>
+                        </div>
+                        
+                        {{#if urgent}}
+                        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+                            <strong>⏰ Action Required:</strong> {{urgent}}
+                        </div>
+                        {{/if}}
+
+                        {{content}}
+
+                        <div class="footer">
+                            <p>This is an automated notification from your system.</p>
+                            <p>Timestamp: {{timestamp}}</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `,
+    };
+
+    const emailData = {
+      notificationType,
+      timestamp: new Date().toLocaleString(),
+      ...data,
+    };
+
+    const emailOptions: IEmailOptions = {
+      to: adminEmail,
+      ...options,
+    };
+
+    return await sendEmailWithTemplate(template, emailOptions, emailData);
+  } catch (error) {
+    logger.error("Failed to send admin notification:", error);
+    return false;
+  }
+};
+
+// Send user confirmation with dynamic content
+const sendUserConfirmation = async (
+  userEmail: string,
+  confirmationType: string,
+  data: IEmailData,
+  options: Partial<IEmailOptions> = {},
+): Promise<boolean> => {
+  try {
+    // Default user confirmation template
+    const template: IEmailTemplate = {
+      subject: `✅ {{confirmationType}} - {{title}}`,
+      html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Confirmation</title>
+                    <style>
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            line-height: 1.6;
+                            color: #333;
+                            max-width: 600px;
+                            margin: 0 auto;
+                            padding: 20px;
+                            background-color: #f4f4f4;
+                        }
+                        .container {
+                            background: white;
+                            padding: 30px;
+                            border-radius: 10px;
+                            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        }
+                        .header {
+                            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                            color: white;
+                            padding: 20px;
+                            border-radius: 8px;
+                            margin-bottom: 20px;
+                            text-align: center;
+                        }
+                        .content {
+                            margin-bottom: 20px;
+                        }
+                        .highlight {
+                            background-color: #d4edda;
+                            padding: 15px;
+                            border-radius: 5px;
+                            border-left: 4px solid #28a745;
+                            margin: 20px 0;
+                        }
+                        .footer {
+                            margin-top: 20px;
+                            padding-top: 20px;
+                            border-top: 1px solid #eee;
+                            text-align: center;
+                            color: #6c757d;
+                            font-size: 12px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>✅ {{confirmationType}}</h1>
+                            <p>{{description}}</p>
+                        </div>
+                        
+                        <div class="content">
+                            {{content}}
+                        </div>
+
+                        <div class="footer">
+                            <p>This is an automated confirmation email.</p>
+                            <p>If you didn't perform this action, please ignore this email.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `,
+    };
+
+    const emailData = {
+      confirmationType,
+      timestamp: new Date().toLocaleString(),
+      ...data,
+    };
+
+    const emailOptions: IEmailOptions = {
+      to: userEmail,
+      ...options,
+    };
+
+    return await sendEmailWithTemplate(template, emailOptions, emailData);
+  } catch (error) {
+    logger.error("Failed to send user confirmation:", error);
+    return false;
+  }
+};
+
+// Email queue for handling high volume (basic implementation)
+interface IEmailQueueItem {
+  template: IEmailTemplate;
+  options: IEmailOptions;
+  data: IEmailData;
+  retries?: number;
+  maxRetries?: number;
+}
+
+class EmailQueue {
+  private queue: IEmailQueueItem[] = [];
+  private processing = false;
+
+  add(item: IEmailQueueItem) {
+    item.retries = 0;
+    item.maxRetries = item.maxRetries || 3;
+    this.queue.push(item);
+    this.process();
+  }
+
+  private async process() {
+    if (this.processing || this.queue.length === 0) return;
+
+    this.processing = true;
+
+    while (this.queue.length > 0) {
+      const item = this.queue.shift()!;
+
+      try {
+        const success = await sendEmailWithTemplate(
+          item.template,
+          item.options,
+          item.data,
+        );
+
+        if (!success && item.retries! < item.maxRetries!) {
+          item.retries!++;
+          this.queue.push(item);
+          logger.warn(
+            `Email retry ${item.retries}/${item.maxRetries} for ${item.options.to}`,
+          );
+        }
+      } catch (error) {
+        if (item.retries! < item.maxRetries!) {
+          item.retries!++;
+          this.queue.push(item);
+        } else {
+          logger.error("Email failed after max retries:", error);
+        }
+      }
+    }
+
+    this.processing = false;
+  }
+}
+
+const emailQueue = new EmailQueue();
+
+// Add email to queue for background processing
+const queueEmail = (
+  template: IEmailTemplate,
+  options: IEmailOptions,
+  data: IEmailData = {},
+  maxRetries: number = 3,
+) => {
+  emailQueue.add({ template, options, data, maxRetries });
+};
+
+export const dynamicEmailHelper = {
+  // Core functions
+  sendEmail,
+  sendEmailWithTemplate,
+  sendBulkEmails,
+
+  // Convenience functions
+  sendAdminNotification,
+  sendUserConfirmation,
+
+  // Queue functions
+  queueEmail,
+
+  // Utility
+  transporter,
+};
