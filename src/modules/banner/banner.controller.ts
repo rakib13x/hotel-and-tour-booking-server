@@ -111,9 +111,125 @@ const getSingleBanner = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const updateBanner = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  if (!id) {
+    return sendResponse(res, StatusCodes.BAD_REQUEST, {
+      success: false,
+      message: "Banner ID is required",
+    });
+  }
+
+  // Handle file uploads
+  const files = req.files as Express.Multer.File[];
+  const backgroundImageFiles = files || [];
+
+  // Determine if this is FormData or JSON request
+  const contentType = req.headers["content-type"];
+  const isFormData = contentType && contentType.includes("multipart/form-data");
+
+  // Prepare banner data based on request type
+  let bannerData;
+  if (isFormData) {
+    // For FormData, data is directly in req.body
+    bannerData = {
+      title: req.body.title,
+      description: req.body.description,
+      isActive: req.body.isActive,
+      backgroundImage: [],
+    };
+  } else {
+    // For JSON, data is in req.body.body
+    bannerData = req.body.body;
+  }
+
+  // Upload new background image to Cloudinary if provided
+  if (backgroundImageFiles.length > 0 && backgroundImageFiles[0]) {
+    const file = backgroundImageFiles[0];
+
+    // Check if file has valid data (for Cloudinary storage, check path instead of buffer)
+    if (file.path && file.path.trim() !== "") {
+      console.log(
+        "Banner Update: File already uploaded to Cloudinary, using path:",
+        file.path,
+      );
+      bannerData.backgroundImage = file.path;
+    } else {
+      console.log(
+        "Banner Update: File has no valid path, trying manual upload...",
+      );
+      try {
+        const backgroundImageUrl = await uploadImageToCloudinary(
+          file.buffer,
+          "banners/backgrounds",
+        );
+        bannerData.backgroundImage = backgroundImageUrl;
+      } catch (error) {
+        console.error("Banner Update: Image upload failed:", error);
+        // Continue without updating image if upload fails
+      }
+    }
+  }
+
+  const result = await BannerService.updateBannerIntoDB(id, bannerData);
+  sendResponse(res, StatusCodes.OK, {
+    success: true,
+    message: "Banner updated successfully",
+    data: result,
+  });
+});
+
+const deleteBanner = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  if (!id) {
+    return sendResponse(res, StatusCodes.BAD_REQUEST, {
+      success: false,
+      message: "Banner ID is required",
+    });
+  }
+
+  const result = await BannerService.deleteBannerFromDB(id);
+  sendResponse(res, StatusCodes.OK, {
+    success: true,
+    message: "Banner deleted successfully",
+    data: result,
+  });
+});
+
+const toggleBannerStatus = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const { isActive } = req.body;
+
+  if (!id) {
+    return sendResponse(res, StatusCodes.BAD_REQUEST, {
+      success: false,
+      message: "Banner ID is required",
+    });
+  }
+
+  if (typeof isActive !== "boolean") {
+    return sendResponse(res, StatusCodes.BAD_REQUEST, {
+      success: false,
+      message: "isActive must be a boolean value",
+    });
+  }
+
+  const result = await BannerService.toggleBannerStatusInDB(id, isActive);
+  sendResponse(res, StatusCodes.OK, {
+    success: true,
+    message: `Banner ${isActive ? "activated" : "deactivated"} successfully`,
+    data: result,
+  });
+});
+
 export const BannerController = {
   createBanner,
   getAllBanners,
   getActiveBanners,
   getSingleBanner,
+  updateBanner,
+  deleteBanner,
+  toggleBannerStatus,
 };

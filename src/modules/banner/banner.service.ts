@@ -109,10 +109,33 @@ const getActiveBannersFromDB = async (): Promise<IBanner[]> => {
   return result;
 };
 
+const deleteBannerFromDB = async (id: string): Promise<IBanner | null> => {
+  checkValidID(id);
+  const result = await Banner.findByIdAndDelete(id);
+  if (!result) {
+    throw new ApiError(StatusCodes.NOT_FOUND, "Banner not found");
+  }
+  return result;
+};
+
+const toggleBannerStatusInDB = async (
+  id: string,
+  isActive: boolean,
+): Promise<IBanner | null> => {
+  const result = await Banner.findByIdAndUpdate(
+    id,
+    { isActive },
+    { new: true },
+  );
+  return result;
+};
+
 export const BannerService = {
   createBannerIntoDB,
   getAllBannersFromDB,
   getSingleBannerFromDB,
   updateBannerIntoDB,
   getActiveBannersFromDB,
+  deleteBannerFromDB,
+  toggleBannerStatusInDB,
 };
