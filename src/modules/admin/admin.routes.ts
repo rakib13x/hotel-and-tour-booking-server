@@ -45,4 +45,11 @@ router.post(
   adminController.createUser,
 );
 
+router.patch(
+  "/users/:id",
+  validateRequest(updateUserSchema),
+  adminController.updateUser,
+);
+router.delete("/users/:id", adminController.deleteUser);
+
 export default router;

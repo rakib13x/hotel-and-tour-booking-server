@@ -4,7 +4,11 @@ import ApiError from "../../utils/ApiError";
 import catchAsync from "../../utils/catchAsync";
 import sendResponse from "../../utils/sendResponse";
 import User from "../auth/auth.model";
-import { canCreateUserWithRole } from "../../utils/rolePermissions";
+import {
+  canCreateUserWithRole,
+  canDeleteUser,
+  canUpdateUser,
+} from "../../utils/rolePermissions";
 
 class AdminController {
   // Get all users
@@ -97,6 +101,118 @@ class AdminController {
       success: true,
       message: "User created successfully",
       data: userWithoutPassword,
+    });
+  });
+
+  // Update user
+  updateUser = catchAsync(async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const { name, email, role } = req.body;
+    const currentAdmin = (req as any).admin;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Invalid user ID");
+    }
+
+    // Get target user
+    const targetUser = await User.findById(id);
+    if (!targetUser) {
+      throw new ApiError(404, "User not found");
+    }
+
+    // Check permission to update this user
+    const permissionCheck = canUpdateUser(
+      currentAdmin.role,
+      id,
+      currentAdmin._id.toString(),
+      targetUser.role,
+      role,
+    );
+
+    if (!permissionCheck.allowed) {
+      throw new ApiError(403, permissionCheck.message);
+    }
+
+    // Check if email is being changed and if it already exists
+    if (email) {
+      const existingUser = await User.findOne({ email, _id: { $ne: id } });
+      if (existingUser) {
+        throw new ApiError(400, "User with this email already exists");
+      }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { name, email, role },
+      { new: true, runValidators: true },
+    ).select("-password");
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "User updated successfully",
+      data: updatedUser,
+    });
+  });
+
+  // Delete user
+  deleteUser = catchAsync(async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const currentAdmin = (req as any).admin;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Invalid user ID");
+    }
+
+    // Get target user
+    const targetUser = await User.findById(id);
+    if (!targetUser) {
+      throw new ApiError(404, "User not found");
+    }
+
+    // Check permission to delete this user
+    const permissionCheck = canDeleteUser(
+      currentAdmin.role,
+      id,
+      currentAdmin._id.toString(),
+      targetUser.role,
+    );
+
+    if (!permissionCheck.allowed) {
+      throw new ApiError(403, permissionCheck.message);
+    }
+
+    await User.findByIdAndDelete(id);
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "User deleted successfully",
+    });
+  });
+
+  // Get admin dashboard stats
+  getDashboardStats = catchAsync(async (req: Request, res: Response) => {
+    const totalUsers = await User.countDocuments();
+    const totalAdmins = await User.countDocuments({
+      role: { $in: ["admin", "super_admin"] },
+    });
+    const totalRegularUsers = await User.countDocuments({ role: "user" });
+
+    // Get recent users (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const recentUsers = await User.countDocuments({
+      createdAt: { $gte: sevenDaysAgo },
+    });
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "Dashboard stats retrieved successfully",
+      data: {
+        totalUsers,
+        totalAdmins,
+        totalRegularUsers,
+        recentUsers,
+      },
     });
   });
 }
