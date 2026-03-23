@@ -8,6 +8,7 @@ import {
   canCreateUserWithRole,
   canDeleteUser,
   canUpdateUser,
+  getAllowedRolesForCreation,
 } from "../../utils/rolePermissions";
 
 class AdminController {
@@ -212,6 +213,70 @@ class AdminController {
         totalAdmins,
         totalRegularUsers,
         recentUsers,
+      },
+    });
+  });
+
+  // Change user role
+  changeUserRole = catchAsync(async (req: Request, res: Response) => {
+    const id = req.params.id as string;
+    const { role } = req.body;
+    const currentAdmin = (req as any).admin;
+
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      throw new ApiError(400, "Invalid user ID");
+    }
+
+    if (!["admin", "user", "super_admin"].includes(role)) {
+      throw new ApiError(
+        400,
+        "Invalid role. Must be admin, user, or super_admin",
+      );
+    }
+
+    // Get target user
+    const targetUser = await User.findById(id);
+    if (!targetUser) {
+      throw new ApiError(404, "User not found");
+    }
+
+    // Check permission to change this user's role
+    const permissionCheck = canUpdateUser(
+      currentAdmin.role,
+      id,
+      currentAdmin._id.toString(),
+      targetUser.role,
+      role,
+    );
+
+    if (!permissionCheck.allowed) {
+      throw new ApiError(403, permissionCheck.message);
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { role },
+      { new: true, runValidators: true },
+    ).select("-password");
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "User role updated successfully",
+      data: updatedUser,
+    });
+  });
+
+  // Get allowed roles for current admin (for frontend dropdown)
+  getAllowedRoles = catchAsync(async (req: Request, res: Response) => {
+    const currentAdmin = (req as any).admin;
+    const allowedRoles = getAllowedRolesForCreation(currentAdmin.role);
+
+    sendResponse(res, 200, {
+      success: true,
+      message: "Allowed roles retrieved successfully",
+      data: {
+        allowedRoles,
+        currentUserRole: currentAdmin.role,
       },
     });
   });

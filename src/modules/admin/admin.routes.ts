@@ -52,4 +52,10 @@ router.patch(
 );
 router.delete("/users/:id", adminController.deleteUser);
 
+router.patch(
+  "/users/:id/role",
+  validateRequest(changeRoleSchema),
+  adminController.changeUserRole,
+);
+
 export default router;
