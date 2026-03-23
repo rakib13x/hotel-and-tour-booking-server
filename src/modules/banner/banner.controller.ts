@@ -76,6 +76,44 @@ const createBanner = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+const getAllBanners = catchAsync(async (req: Request, res: Response) => {
+  const result = await BannerService.getAllBannersFromDB(req.query);
+  sendResponse(res, StatusCodes.OK, {
+    success: true,
+    message: "Banners retrieved successfully",
+    data: result.data,
+    pagination: result.pagination,
+  });
+});
+
+const getActiveBanners = catchAsync(async (req: Request, res: Response) => {
+  const result = await BannerService.getActiveBannersFromDB();
+  sendResponse(res, StatusCodes.OK, {
+    success: true,
+    message: "Active banners retrieved successfully",
+    data: result,
+  });
+});
+
+const getSingleBanner = catchAsync(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  if (!id) {
+    return sendResponse(res, StatusCodes.BAD_REQUEST, {
+      success: false,
+      message: "Banner ID is required",
+    });
+  }
+  const result = await BannerService.getSingleBannerFromDB(id);
+  sendResponse(res, StatusCodes.OK, {
+    success: true,
+    message: "Banner retrieved successfully",
+    data: result,
+  });
+});
+
 export const BannerController = {
   createBanner,
+  getAllBanners,
+  getActiveBanners,
+  getSingleBanner,
 };
