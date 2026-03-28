@@ -1,0 +1,1 @@
+{"version":3,"file":"destination.model.d.ts","sourceRoot":"","sources":["../../src/models/destination.model.ts"],"names":[],"mappings":"AAAA,OAAO,EAAiB,KAAK,EAAE,MAAM,UAAU,CAAC;AAEhD,MAAM,WAAW,YAAY;IAC3B,GAAG,EAAE,KAAK,CAAC,QAAQ,CAAC;IACpB,OAAO,EAAE,MAAM,CAAC;IAChB,IAAI,CAAC,EAAE,MAAM,CAAC;IACd,IAAI,EAAE,MAAM,CAAC;CACd;AAWD,eAAO,MAAM,WAAW;;;;OAAwD,CAAC"}

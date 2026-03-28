@@ -1,0 +1,1 @@
+{"version":3,"file":"authorization.model.js","sourceRoot":"","sources":["../../src/models/authorization.model.ts"],"names":[],"mappings":";;;AAAA,uCAAyC;AAGzC,MAAM,mBAAmB,GAAG,IAAI,iBAAM,CACpC;IACE,KAAK,EAAE;QACL,IAAI,EAAE,MAAM;QACZ,QAAQ,EAAE,IAAI;KACf;CACF,EACD,EAAE,UAAU,EAAE,IAAI,EAAE,CACrB,CAAC;AAEW,QAAA,aAAa,GAAG,IAAA,gBAAK,EAChC,eAAe,EACf,mBAAmB,CACpB,CAAC"}

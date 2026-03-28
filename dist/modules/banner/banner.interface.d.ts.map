@@ -1,0 +1,1 @@
+{"version":3,"file":"banner.interface.d.ts","sourceRoot":"","sources":["../../../src/modules/banner/banner.interface.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,QAAQ,EAAE,MAAM,UAAU,CAAC;AAEpC,MAAM,WAAW,OAAQ,SAAQ,QAAQ;IACvC,KAAK,EAAE,MAAM,CAAC;IACd,WAAW,EAAE,MAAM,CAAC;IACpB,eAAe,EAAE,MAAM,CAAC;IACxB,SAAS,EAAE,IAAI,CAAC;IAChB,SAAS,EAAE,IAAI,CAAC;CACjB"}
